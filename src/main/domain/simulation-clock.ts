@@ -1,53 +1,158 @@
-import type { GameMode } from '../../shared/types';
-import { ValidationError } from './errors';
+import {
+  HISTORICAL_TIME_MULTIPLIERS,
+  type GameMode,
+  type GameStatus,
+  type HistoricalTimeMultiplier,
+} from '../../shared/types';
+import { DomainError, ValidationError } from './errors';
+
+export interface SimulationClockSource {
+  mode: GameMode;
+  simulationStartTimestamp: string;
+  simulationTimestamp: string;
+  clockAnchorSimulationTimestamp: string;
+  clockAnchorRealTimestamp: string;
+  timeMultiplier: HistoricalTimeMultiplier;
+  status: GameStatus;
+}
+
+export interface SimulationClockSnapshot {
+  simulationTimestamp: string;
+  realTimestamp: string;
+  status: GameStatus;
+  reachedPresent: boolean;
+}
+
+export interface SimulationClockUpdate {
+  simulationTimestamp: string;
+  clockAnchorSimulationTimestamp: string;
+  clockAnchorRealTimestamp: string;
+  timeMultiplier: HistoricalTimeMultiplier;
+  status: GameStatus;
+}
+
+function timestamp(value: string, field: string): Date {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new ValidationError(`Некорректное поле ${field}`);
+  return parsed;
+}
+
+export function isHistoricalTimeMultiplier(value: number): value is HistoricalTimeMultiplier {
+  return HISTORICAL_TIME_MULTIPLIERS.some((multiplier) => multiplier === value);
+}
 
 export class SimulationClock {
-  private historicalTimestamp: Date | null;
-
   constructor(
-    readonly mode: GameMode,
-    timestamp: string,
+    private readonly source: SimulationClockSource,
     private readonly realClock: () => Date = () => new Date(),
   ) {
-    const parsed = new Date(timestamp);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new ValidationError('Некорректное время симуляции');
+    this.validate();
+  }
+
+  current(): SimulationClockSnapshot {
+    const realNow = this.realClock();
+    if (Number.isNaN(realNow.getTime())) throw new ValidationError('Некорректное системное время');
+    if (this.source.mode === 'LIVE') {
+      return {
+        simulationTimestamp: realNow.toISOString(),
+        realTimestamp: realNow.toISOString(),
+        status: 'ACTIVE',
+        reachedPresent: false,
+      };
     }
-    this.historicalTimestamp = mode === 'HISTORICAL' ? parsed : null;
+    if (this.source.status === 'COMPLETED') {
+      return {
+        simulationTimestamp: this.source.simulationTimestamp,
+        realTimestamp: realNow.toISOString(),
+        status: 'COMPLETED',
+        reachedPresent: true,
+      };
+    }
+    const anchorSimulation = timestamp(
+      this.source.clockAnchorSimulationTimestamp,
+      'clockAnchorSimulationTimestamp',
+    );
+    const anchorReal = timestamp(this.source.clockAnchorRealTimestamp, 'clockAnchorRealTimestamp');
+    const elapsedReal = Math.max(0, realNow.getTime() - anchorReal.getTime());
+    const projected = anchorSimulation.getTime() + elapsedReal * this.source.timeMultiplier;
+    const reachedPresent = projected >= realNow.getTime();
+    const simulationTime = reachedPresent ? realNow.getTime() : projected;
+    return {
+      simulationTimestamp: new Date(simulationTime).toISOString(),
+      realTimestamp: realNow.toISOString(),
+      status: reachedPresent ? 'COMPLETED' : 'ACTIVE',
+      reachedPresent,
+    };
   }
 
-  now(): Date {
-    return this.mode === 'LIVE' ? this.realClock() : new Date(this.historicalTimestamp!);
+  withMultiplier(multiplier: number): SimulationClockUpdate {
+    if (this.source.mode !== 'HISTORICAL') {
+      throw new ValidationError('Множитель доступен только в Historical Mode');
+    }
+    if (!isHistoricalTimeMultiplier(multiplier)) {
+      throw new ValidationError('Недопустимый множитель времени');
+    }
+    const snapshot = this.current();
+    if (snapshot.status === 'COMPLETED') {
+      throw new DomainError('Завершённую Historical-игру нельзя продолжить', 'GAME_COMPLETED');
+    }
+    return {
+      simulationTimestamp: snapshot.simulationTimestamp,
+      clockAnchorSimulationTimestamp: snapshot.simulationTimestamp,
+      clockAnchorRealTimestamp: snapshot.realTimestamp,
+      timeMultiplier: multiplier,
+      status: 'ACTIVE',
+    };
   }
 
-  nowIso(): string {
-    return this.now().toISOString();
-  }
-
-  set(timestamp: string): void {
-    if (this.mode !== 'HISTORICAL') {
+  withTimestamp(value: string): SimulationClockUpdate {
+    if (this.source.mode !== 'HISTORICAL') {
       throw new ValidationError('Время LIVE-игры определяется системными часами');
     }
-    const next = new Date(timestamp);
-    if (Number.isNaN(next.getTime())) {
-      throw new ValidationError('Некорректное время симуляции');
+    if (this.source.status === 'COMPLETED') {
+      throw new DomainError('Завершённую Historical-игру нельзя продолжить', 'GAME_COMPLETED');
     }
-    this.historicalTimestamp = next;
-  }
-
-  advance(milliseconds: number): void {
-    if (this.mode !== 'HISTORICAL' || milliseconds < 0 || !Number.isFinite(milliseconds)) {
-      throw new ValidationError('Некорректное изменение времени симуляции');
+    const next = timestamp(value, 'simulationTimestamp');
+    const realNow = this.realClock();
+    if (next.getTime() >= realNow.getTime()) {
+      throw new ValidationError('Historical-время должно находиться в прошлом');
     }
-    this.historicalTimestamp = new Date(this.historicalTimestamp!.getTime() + milliseconds);
+    return {
+      simulationTimestamp: next.toISOString(),
+      clockAnchorSimulationTimestamp: next.toISOString(),
+      clockAnchorRealTimestamp: realNow.toISOString(),
+      timeMultiplier: this.source.timeMultiplier,
+      status: 'ACTIVE',
+    };
   }
 
-  allows(timestamp: string): boolean {
-    const candidate = new Date(timestamp);
-    return !Number.isNaN(candidate.getTime()) && candidate.getTime() <= this.now().getTime();
+  allows(value: string, boundary = this.current().simulationTimestamp): boolean {
+    const candidate = new Date(value);
+    const currentBoundary = new Date(boundary);
+    return (
+      !Number.isNaN(candidate.getTime()) &&
+      !Number.isNaN(currentBoundary.getTime()) &&
+      candidate.getTime() <= currentBoundary.getTime()
+    );
   }
 
-  filterAllowed<T extends { timestamp: string }>(values: T[]): T[] {
-    return values.filter((value) => this.allows(value.timestamp));
+  filterAllowed<T extends { timestamp: string }>(
+    values: T[],
+    boundary = this.current().simulationTimestamp,
+  ): T[] {
+    return values.filter((value) => this.allows(value.timestamp, boundary));
+  }
+
+  private validate(): void {
+    timestamp(this.source.simulationStartTimestamp, 'simulationStartTimestamp');
+    timestamp(this.source.simulationTimestamp, 'simulationTimestamp');
+    timestamp(this.source.clockAnchorSimulationTimestamp, 'clockAnchorSimulationTimestamp');
+    timestamp(this.source.clockAnchorRealTimestamp, 'clockAnchorRealTimestamp');
+    if (!isHistoricalTimeMultiplier(this.source.timeMultiplier)) {
+      throw new ValidationError('Недопустимый множитель времени');
+    }
+    if (this.source.mode === 'LIVE' && this.source.status === 'COMPLETED') {
+      throw new ValidationError('Live-игра не может быть завершена Historical clock');
+    }
   }
 }

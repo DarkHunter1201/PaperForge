@@ -22,7 +22,7 @@ export interface TestHarness {
   dispose(): void;
 }
 
-export function createHarness(): TestHarness {
+export function createHarness(realClock: () => Date = () => new Date()): TestHarness {
   const parent = resolve('.paperforge-test');
   mkdirSync(parent, { recursive: true });
   const root = join(parent, randomUUID());
@@ -38,6 +38,7 @@ export function createHarness(): TestHarness {
     crypto,
     sessions,
     logger,
+    realClock,
   );
   return {
     root,

@@ -18,6 +18,9 @@ const api: PaperForgeApi = {
     list: () => ipcRenderer.invoke(channels.gamesList),
     create: (input) => ipcRenderer.invoke(channels.gamesCreate, input),
     load: (gameId) => ipcRenderer.invoke(channels.gamesLoad, gameId),
+    syncClock: (gameId) => ipcRenderer.invoke(channels.gamesSyncClock, gameId),
+    setTimeMultiplier: (gameId, multiplier) =>
+      ipcRenderer.invoke(channels.gamesSetTimeMultiplier, gameId, multiplier),
     remove: (gameId) => ipcRenderer.invoke(channels.gamesRemove, gameId),
   },
   saves: {

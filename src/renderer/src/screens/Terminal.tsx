@@ -14,7 +14,9 @@ import {
   Wifi,
 } from 'lucide-react';
 import type { GameState, Instrument, SessionInfo } from '../../../shared/types';
+import { HISTORICAL_TIME_MULTIPLIERS } from '../../../shared/types';
 import { Logo } from '../components/Logo';
+import { unwrap } from '../lib/api';
 import { useSecretSequence } from '../hooks/useSecretSequence';
 import { AdminPanel } from './AdminPanel';
 import { HistoryScreen } from './HistoryScreen';
@@ -61,7 +63,53 @@ export function Terminal({
     return () => window.clearInterval(timer);
   }, [game.mode]);
 
+  useEffect(() => {
+    if (game.mode !== 'HISTORICAL' || game.status === 'COMPLETED') return;
+    let disposed = false;
+    let syncing = false;
+    const synchronize = async () => {
+      if (syncing) return;
+      syncing = true;
+      try {
+        let next = unwrap(await window.paperForge.games.syncClock(game.id));
+        if (next.status === 'COMPLETED' && !next.finalPortfolio) {
+          unwrap(await window.paperForge.trading.portfolio(game.id));
+          next = unwrap(await window.paperForge.games.load(game.id));
+        }
+        if (!disposed) setGame(next);
+      } finally {
+        syncing = false;
+      }
+    };
+    void synchronize();
+    const timer = window.setInterval(() => void synchronize(), 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [game.id, game.mode, game.status]);
+
+  useEffect(() => {
+    if (game.mode !== 'HISTORICAL' || game.status !== 'COMPLETED' || game.finalPortfolio) return;
+    let disposed = false;
+    const finalize = async () => {
+      unwrap(await window.paperForge.trading.portfolio(game.id));
+      const next = unwrap(await window.paperForge.games.load(game.id));
+      if (!disposed) setGame(next);
+    };
+    void finalize();
+    return () => {
+      disposed = true;
+    };
+  }, [game.finalPortfolio, game.id, game.mode, game.status]);
+
   const displayedTimestamp = game.mode === 'LIVE' ? liveTimestamp : game.simulationTimestamp;
+
+  const changeMultiplier = async (value: string) => {
+    const multiplier = HISTORICAL_TIME_MULTIPLIERS.find((item) => item === Number(value));
+    if (!multiplier) return;
+    setGame(unwrap(await window.paperForge.games.setTimeMultiplier(game.id, multiplier)));
+  };
 
   const navigate = (next: Navigation) => {
     setInstrument(null);
@@ -122,6 +170,22 @@ export function Terminal({
               <Clock3 size={15} />
               {new Date(displayedTimestamp).toLocaleString('ru-RU')}
             </span>
+            {game.mode === 'HISTORICAL' && (
+              <label className="time-multiplier-control">
+                <select
+                  value={game.timeMultiplier}
+                  disabled={game.status === 'COMPLETED'}
+                  onChange={(event) => void changeMultiplier(event.target.value)}
+                  aria-label="Скорость времени"
+                >
+                  {HISTORICAL_TIME_MULTIPLIERS.map((multiplier) => (
+                    <option key={multiplier} value={multiplier}>
+                      {multiplier}x
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="user-avatar">{session.username.slice(0, 1).toUpperCase()}</div>
           </div>
         </header>
@@ -137,6 +201,21 @@ export function Terminal({
             <>
               {active === 'overview' && (
                 <section className="workspace-screen">
+                  {game.status === 'COMPLETED' && (
+                    <div className="completion-banner">
+                      <Clock3 size={22} />
+                      <div>
+                        <strong>Historical-симуляция завершена</strong>
+                        <span>Симуляция достигла текущей даты и времени.</span>
+                        {game.finalPortfolio && (
+                          <small>
+                            Финальная стоимость: {game.finalPortfolio.totalValue}{' '}
+                            {game.finalPortfolio.reportingCurrency}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="screen-heading overview-heading">
                     <div>
                       <span className="eyebrow">TRADING DESK</span>
@@ -193,13 +272,16 @@ export function Terminal({
                       </strong>
                       <p>
                         {new Date(displayedTimestamp).toLocaleTimeString('ru-RU')} · {game.mode}
+                        {game.mode === 'HISTORICAL' ? ` · ${game.timeMultiplier}x` : ''}
                       </p>
                       <div className="clock-line">
                         <span />
                       </div>
                       <small>
                         {game.mode === 'HISTORICAL'
-                          ? 'Данные после этой отметки заблокированы'
+                          ? game.status === 'COMPLETED'
+                            ? 'Время остановлено, результаты сохранены'
+                            : 'Данные после этой отметки заблокированы'
                           : 'Синхронизировано с реальным временем'}
                       </small>
                     </div>

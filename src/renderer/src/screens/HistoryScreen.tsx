@@ -36,8 +36,9 @@ export function HistoryScreen({ game }: { game: GameState }) {
               <em className={`side-chip ${trade.side.toLowerCase()}`}>{trade.side}</em>
             </span>
             <span>{formatNumber(trade.quantity)}</span>
-            <span>
+            <span className="trade-price-cell">
               {formatNumber(trade.executionPrice)} {trade.transactionCurrency}
+              {trade.quoteTimestamp && <small>Котировка: {formatDate(trade.quoteTimestamp)}</small>}
             </span>
             <span>
               {formatNumber(Number(trade.quantity) * Number(trade.executionPrice))}{' '}

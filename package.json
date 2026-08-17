@@ -1,10 +1,17 @@
 {
   "name": "paperforge",
-  "version": "1.0.0-alpha",
+  "version": "1.0.1-alpha",
   "description": "Desktop paper-trading simulator powered by real market data",
   "main": "./out/main/index.js",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": "24.19.0"
+  },
+  "paperForge": {
+    "nodeWindowsX64Sha256": "57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

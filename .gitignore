@@ -4,6 +4,7 @@ dist/
 coverage/
 .paperforge/
 .paperforge-test/
+.clean-install-check*/
 .env
 .env.*
 !.env.example

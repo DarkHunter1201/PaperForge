@@ -9,6 +9,8 @@ export const channels = {
   gamesList: 'games:list',
   gamesCreate: 'games:create',
   gamesLoad: 'games:load',
+  gamesSyncClock: 'games:sync-clock',
+  gamesSetTimeMultiplier: 'games:set-time-multiplier',
   gamesRemove: 'games:remove',
   savesList: 'saves:list',
   savesCreate: 'saves:create',

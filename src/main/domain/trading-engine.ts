@@ -17,12 +17,17 @@ export class TradingEngine {
   execute(request: TradeRequest): GameState {
     const quantity = positiveDecimal(request.quantity, 'Количество');
     const price = positiveDecimal(request.quote.price, 'Цена');
-    const clock = new SimulationClock(request.state.mode, request.state.simulationTimestamp);
-    if (!clock.allows(request.quote.timestamp)) {
-      throw new DomainError('Котировка находится в будущем относительно симуляции', 'FUTURE_DATA');
+    const realTimestamp = request.realTimestamp ?? new Date().toISOString();
+    const clock = new SimulationClock(request.state, () => new Date(realTimestamp));
+    const clockSnapshot = clock.current();
+    if (clockSnapshot.status === 'COMPLETED') {
+      throw new DomainError(
+        'Завершённая Historical-игра доступна только для просмотра',
+        'GAME_COMPLETED',
+      );
     }
-    if (!request.instrument.tradable) {
-      throw new DomainError('Инструмент недоступен для торговли', 'MARKET_UNAVAILABLE');
+    if (!clock.allows(request.quote.timestamp, clockSnapshot.simulationTimestamp)) {
+      throw new DomainError('Котировка находится в будущем относительно симуляции', 'FUTURE_DATA');
     }
     const transactionCurrency = request.instrument.quoteCurrency;
     const cost = quantity.mul(price);
@@ -66,7 +71,6 @@ export class TradingEngine {
         next.holdings.splice(existingIndex, 1);
       }
     }
-    const realTimestamp = request.realTimestamp ?? new Date().toISOString();
     next.trades.push({
       id: randomUUID(),
       gameId: next.id,
@@ -75,12 +79,13 @@ export class TradingEngine {
       side: request.side,
       quantity: canonicalDecimal(quantity),
       executionPrice: canonicalDecimal(price),
+      quoteTimestamp: request.quote.timestamp,
       transactionCurrency,
       commission: '0',
       realTimestamp,
-      simulationTimestamp: clock.nowIso(),
+      simulationTimestamp: clockSnapshot.simulationTimestamp,
     });
-    next.simulationTimestamp = clock.nowIso();
+    next.simulationTimestamp = clockSnapshot.simulationTimestamp;
     next.updatedAt = realTimestamp;
     next.revision += 1;
     this.validate(next);
@@ -88,6 +93,7 @@ export class TradingEngine {
   }
 
   validate(state: GameState): void {
+    new SimulationClock(state, () => new Date(state.updatedAt));
     for (const [currency, balance] of Object.entries(state.cash)) {
       if (!currency || decimal(balance).isNegative()) {
         throw new ValidationError('Нарушен инвариант денежного баланса');

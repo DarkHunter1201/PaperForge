@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import type { ApiResult } from '../shared/types';
+import type { ApiResult, HistoricalTimeMultiplier } from '../shared/types';
 import { channels } from '../shared/channels';
 import { DomainError } from './domain/errors';
 import type { AppContainer } from './application/app-container';
@@ -56,6 +56,14 @@ export function registerIpc(container: AppContainer, version: string): void {
   ipcMain.handle(channels.gamesCreate, (_, input) => result(() => container.games.create(input)));
   ipcMain.handle(channels.gamesLoad, (_, gameId: string) =>
     result(() => container.games.load(gameId)),
+  );
+  ipcMain.handle(channels.gamesSyncClock, (_, gameId: string) =>
+    result(() => container.games.syncClock(gameId)),
+  );
+  ipcMain.handle(
+    channels.gamesSetTimeMultiplier,
+    (_, gameId: string, multiplier: HistoricalTimeMultiplier) =>
+      result(() => container.games.setTimeMultiplier(gameId, multiplier)),
   );
   ipcMain.handle(channels.gamesRemove, (_, gameId: string) =>
     result(() => container.games.remove(gameId)),

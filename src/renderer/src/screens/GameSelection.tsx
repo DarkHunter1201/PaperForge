@@ -187,14 +187,17 @@ export function GameSelection({
                   </button>
                 </div>
                 <h3>{game.name}</h3>
+                {game.status === 'COMPLETED' && <span className="completed-badge">Завершена</span>}
                 <div className="game-metrics">
                   <div>
                     <small>Валюта</small>
                     <strong>{game.reportingCurrency}</strong>
                   </div>
                   <div>
-                    <small>Ревизия</small>
-                    <strong>#{game.revision}</strong>
+                    <small>{game.mode === 'HISTORICAL' ? 'Скорость' : 'Ревизия'}</small>
+                    <strong>
+                      {game.mode === 'HISTORICAL' ? `${game.timeMultiplier}x` : `#${game.revision}`}
+                    </strong>
                   </div>
                 </div>
                 <p>
@@ -202,7 +205,7 @@ export function GameSelection({
                   {formatDate(game.simulationTimestamp)}
                 </p>
                 <button className="card-action" onClick={() => void open(game.id)}>
-                  Открыть терминал
+                  {game.status === 'COMPLETED' ? 'Открыть результаты' : 'Открыть терминал'}
                   <ArrowRight size={17} />
                 </button>
               </article>

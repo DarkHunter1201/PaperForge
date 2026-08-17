@@ -12,7 +12,7 @@ export function PortfolioScreen({
 }) {
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
-  const portfolioKey = `${game.id}:${game.revision}`;
+  const portfolioKey = `${game.id}:${game.mode === 'HISTORICAL' ? (game.status === 'COMPLETED' ? 'completed' : game.simulationTimestamp.slice(0, 16)) : game.revision}`;
 
   const load = useCallback(async () => {
     setBusy(true);

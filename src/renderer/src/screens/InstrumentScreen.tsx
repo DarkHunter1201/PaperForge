@@ -29,6 +29,8 @@ export function InstrumentScreen({
   const [quantity, setQuantity] = useState('1');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const marketTimeKey =
+    game.mode === 'HISTORICAL' ? game.simulationTimestamp.slice(0, 16) : game.revision.toString();
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -49,7 +51,7 @@ export function InstrumentScreen({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, marketTimeKey]);
 
   const execute = async () => {
     setBusy(true);
@@ -157,11 +159,22 @@ export function InstrumentScreen({
           </div>
           <button
             className={`execute-button ${side.toLowerCase()}`}
-            disabled={busy || !quote || !instrument.tradable}
+            disabled={busy || !quote || game.status === 'COMPLETED'}
             onClick={() => void execute()}
           >
-            {busy ? 'Обработка…' : side === 'BUY' ? 'Купить виртуально' : 'Продать виртуально'}
+            {busy
+              ? 'Обработка…'
+              : game.status === 'COMPLETED'
+                ? 'Симуляция завершена'
+                : side === 'BUY'
+                  ? 'Купить виртуально'
+                  : 'Продать виртуально'}
           </button>
+          {quote && !quote.tradable && (
+            <p className="market-status-note">
+              Биржа закрыта · используется последняя доступная котировка
+            </p>
+          )}
           {game.reportingCurrency !== instrument.quoteCurrency && (
             <p className="conversion-note">
               Средства автоматически конвертируются по последнему доступному официальному курсу

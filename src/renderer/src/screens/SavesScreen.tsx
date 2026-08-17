@@ -71,7 +71,8 @@ export function SavesScreen({
               <h3>{save.name}</h3>
               <p>{formatDate(save.simulationTimestamp)}</p>
               <small>
-                Ревизия #{save.revision} · создано {formatDate(save.createdAt)}
+                {save.status === 'COMPLETED' ? 'Завершена' : `${save.timeMultiplier}x`} · ревизия #
+                {save.revision} · создано {formatDate(save.createdAt)}
               </small>
             </div>
             <div className="save-actions">

@@ -7,7 +7,7 @@ export class HttpClient {
       try {
         const response = await fetch(url, {
           method: 'GET',
-          headers: { Accept: 'application/json', 'User-Agent': 'PaperForge/1.0.0-alpha' },
+          headers: { Accept: 'application/json', 'User-Agent': 'PaperForge/1.0.1-alpha' },
           signal: AbortSignal.timeout(timeoutMilliseconds),
         });
         if (response.ok) return (await response.json()) as T;
@@ -44,7 +44,7 @@ export class HttpClient {
           method: 'GET',
           headers: {
             Accept: 'application/xml,text/xml,text/plain',
-            'User-Agent': 'PaperForge/1.0.0-alpha',
+            'User-Agent': 'PaperForge/1.0.1-alpha',
           },
           signal: AbortSignal.timeout(timeoutMilliseconds),
         });

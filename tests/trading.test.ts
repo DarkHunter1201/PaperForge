@@ -21,13 +21,19 @@ const instrument: Instrument = {
 
 function state(): GameState {
   const timestamp = '2026-01-02T15:00:00.000Z';
+  const realTimestamp = new Date().toISOString();
   return {
     id: 'game',
     userId: 'user',
     name: 'Test',
     mode: 'HISTORICAL',
     reportingCurrency: 'USD',
+    simulationStartTimestamp: timestamp,
     simulationTimestamp: timestamp,
+    clockAnchorSimulationTimestamp: timestamp,
+    clockAnchorRealTimestamp: realTimestamp,
+    timeMultiplier: 1,
+    status: 'ACTIVE',
     createdAt: timestamp,
     updatedAt: timestamp,
     revision: 1,
@@ -108,6 +114,7 @@ describe('TradingEngine', () => {
       quantity: '1',
     });
     expect(result.holdings[0]?.instrument.symbol).toBe('AAPL');
+    expect(result.trades[0]?.quoteTimestamp).toBe(quote().timestamp);
   });
 
   it('конвертирует валюту счёта по официальному курсу для покупки', async () => {

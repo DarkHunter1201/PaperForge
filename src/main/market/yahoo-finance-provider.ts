@@ -59,6 +59,24 @@ function currencyForExchange(exchange: string): string {
   return values[exchange] ?? 'USD';
 }
 
+function timezoneForExchange(exchange: string): string {
+  const values: Record<string, string> = {
+    NMS: 'America/New_York',
+    NYQ: 'America/New_York',
+    ASE: 'America/New_York',
+    LSE: 'Europe/London',
+    GER: 'Europe/Berlin',
+    FRA: 'Europe/Berlin',
+    PAR: 'Europe/Paris',
+    AMS: 'Europe/Amsterdam',
+    MIL: 'Europe/Rome',
+    HKG: 'Asia/Hong_Kong',
+    TYO: 'Asia/Tokyo',
+    ASX: 'Australia/Sydney',
+  };
+  return values[exchange] ?? 'UTC';
+}
+
 function intervalValue(interval: CandleInterval): string {
   return { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '60m', '1d': '1d' }[interval];
 }
@@ -117,7 +135,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
           exchange: value.exchDisp || exchangeCode,
           currency,
           quoteCurrency: currency,
-          timezone: 'UTC',
+          timezone: timezoneForExchange(exchangeCode),
           tradable: true,
           dataTimeliness: 'DELAYED' as const,
         };

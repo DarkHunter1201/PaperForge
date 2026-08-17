@@ -1,8 +1,11 @@
 export type AssetClass = 'EQUITY' | 'CRYPTO' | 'FOREX';
 export type GameMode = 'LIVE' | 'HISTORICAL';
+export type GameStatus = 'ACTIVE' | 'COMPLETED';
 export type TradeSide = 'BUY' | 'SELL';
 export type DataTimeliness = 'REALTIME' | 'DELAYED' | 'PROVIDER_DEPENDENT' | 'HISTORICAL';
 export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d';
+export const HISTORICAL_TIME_MULTIPLIERS = [1, 5, 10, 15, 20, 50, 100, 1000] as const;
+export type HistoricalTimeMultiplier = (typeof HISTORICAL_TIME_MULTIPLIERS)[number];
 
 export interface Instrument {
   id: string;
@@ -57,6 +60,7 @@ export interface TradeRecord {
   side: TradeSide;
   quantity: string;
   executionPrice: string;
+  quoteTimestamp?: string;
   transactionCurrency: string;
   commission: string;
   realTimestamp: string;
@@ -69,7 +73,15 @@ export interface GameState {
   name: string;
   mode: GameMode;
   reportingCurrency: string;
+  simulationStartTimestamp: string;
   simulationTimestamp: string;
+  clockAnchorSimulationTimestamp: string;
+  clockAnchorRealTimestamp: string;
+  timeMultiplier: HistoricalTimeMultiplier;
+  status: GameStatus;
+  completedAt?: string;
+  completionReason?: 'PRESENT_REACHED';
+  finalPortfolio?: PortfolioSnapshot;
   createdAt: string;
   updatedAt: string;
   revision: number;
@@ -84,6 +96,8 @@ export interface GameSummary {
   mode: GameMode;
   reportingCurrency: string;
   simulationTimestamp: string;
+  timeMultiplier: HistoricalTimeMultiplier;
+  status: GameStatus;
   updatedAt: string;
   revision: number;
 }
@@ -94,6 +108,8 @@ export interface SaveSummary {
   name: string;
   createdAt: string;
   simulationTimestamp: string;
+  timeMultiplier: HistoricalTimeMultiplier;
+  status: GameStatus;
   revision: number;
 }
 
@@ -181,6 +197,11 @@ export interface PaperForgeApi {
       historicalStart?: string;
     }): Promise<ApiResult<GameState>>;
     load(gameId: string): Promise<ApiResult<GameState>>;
+    syncClock(gameId: string): Promise<ApiResult<GameState>>;
+    setTimeMultiplier(
+      gameId: string,
+      multiplier: HistoricalTimeMultiplier,
+    ): Promise<ApiResult<GameState>>;
     remove(gameId: string): Promise<ApiResult<boolean>>;
   };
   saves: {

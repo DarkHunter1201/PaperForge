@@ -82,14 +82,25 @@ class FutureProvider implements MarketDataProvider {
 describe('Historical data boundary', () => {
   let harness: TestHarness;
   beforeEach(() => {
-    harness = createHarness();
+    harness = createHarness(() => new Date('2026-01-02T16:00:00.000Z'));
   });
   afterEach(() => {
     harness.dispose();
   });
 
   it('SimulationClock фильтрует данные после simulation timestamp', () => {
-    const clock = new SimulationClock('HISTORICAL', '2008-09-15T14:35:00.000Z');
+    const clock = new SimulationClock(
+      {
+        mode: 'HISTORICAL',
+        simulationStartTimestamp: '2008-09-15T14:35:00.000Z',
+        simulationTimestamp: '2008-09-15T14:35:00.000Z',
+        clockAnchorSimulationTimestamp: '2008-09-15T14:35:00.000Z',
+        clockAnchorRealTimestamp: '2026-01-02T16:00:00.000Z',
+        timeMultiplier: 1,
+        status: 'ACTIVE',
+      },
+      () => new Date('2026-01-02T16:00:00.000Z'),
+    );
     expect(clock.allows('2008-09-15T14:35:00.000Z')).toBe(true);
     expect(clock.allows('2008-09-15T14:35:00.001Z')).toBe(false);
   });

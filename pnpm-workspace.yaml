@@ -1,0 +1,8 @@
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+storeDir: .paperforge/cache/pnpm-store
+cacheDir: .paperforge/cache/pnpm-metadata
+stateDir: .paperforge/runtime/pnpm-state
+confirmModulesPurge: false

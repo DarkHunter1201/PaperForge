@@ -81,8 +81,8 @@ export class TradingService {
     side: TradeSide;
     quantity: string;
   }): Promise<GameState> {
-    let state = this.games.load(input.gameId);
     const quote = await this.market.quote(input.gameId, input.instrument);
+    let state = this.games.load(input.gameId);
     if (input.side === 'BUY') {
       const at = state.mode === 'HISTORICAL' ? new Date(state.simulationTimestamp) : new Date();
       state = await fundPurchase(state, input.instrument, quote, input.quantity, this.rates, at);
@@ -126,6 +126,10 @@ export class TradingService {
         }
       }),
     );
-    return this.portfolioEngine.calculate(state, quotes, fxRates);
+    const snapshot = this.portfolioEngine.calculate(state, quotes, fxRates);
+    if (state.status === 'COMPLETED' && !state.finalPortfolio) {
+      this.games.recordFinalPortfolio(gameId, snapshot);
+    }
+    return snapshot;
   }
 }
